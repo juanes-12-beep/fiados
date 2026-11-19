@@ -1,0 +1,947 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1c2a4a">
+<meta name="color-scheme" content="light">
+<title>Fiados</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fiados">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Kalam:wght@400;700&display=swap">
+<style>
+  /* ============ Cuaderno de fiados ============
+     Mesa azul grisácea, hojas blancas con renglón azul y margen rojo,
+     tinta de esfero para el texto y resaltador amarillo para marcar. */
+  :root{
+    --tinta:#1c2a4a; --tinta-2:#4d5a78; --tinta-3:#8b95ab;
+    --mesa:#e7ecf3; --papel:#ffffff; --renglon:#d5e0ee; --margen:#e6675c;
+    --rojo:#c4342a; --verde:#127a4b;
+    --resaltador:#ffe14d; --resaltado-fondo:#fffbe3;
+    --mano:'Kalam','Segoe Print','Bradley Hand',cursive;
+    --letra:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --mx:60px;      /* ancho del margen del cuaderno */
+    --nav-h:66px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{background:var(--mesa)}
+  body{margin:0;background:var(--mesa);color:var(--tinta);font:19px/1.45 var(--letra);min-height:100vh}
+  button,input{font:inherit;color:inherit}
+  button{cursor:pointer}
+  :focus-visible{outline:3px solid #3a6ad6;outline-offset:2px}
+  .oculto{display:none!important}
+  .mano{font-family:var(--mano)}
+  .rojo{color:var(--rojo)} .verde{color:var(--verde)}
+
+  /* ---------- Tapa (encabezado) ---------- */
+  header{position:sticky;top:0;z-index:10;background:var(--tinta);color:#fff;
+    padding:calc(8px + env(safe-area-inset-top)) 14px 8px;display:flex;align-items:center;gap:12px;min-height:60px}
+  header h1{font:700 25px/1.1 var(--mano);margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:5px}
+  .btn-volver{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:999px;
+    padding:8px 16px 8px 10px;font-weight:700;font-size:17px;min-height:44px}
+  .btn-volver svg{width:22px;height:22px}
+
+  main{max-width:560px;margin:0 auto;padding:16px 12px 24px}
+
+  /* ---------- Hoja de cuaderno ---------- */
+  .hoja{position:relative;background:var(--papel);border-radius:3px 3px 12px 12px;margin-bottom:18px;overflow:hidden;
+    box-shadow:0 1px 0 #cdd7e4,0 10px 22px -14px rgba(28,42,74,.45)}
+  .hoja::before{content:'';position:absolute;top:0;bottom:0;left:var(--mx);width:2px;background:var(--margen);opacity:.55;pointer-events:none}
+  .hoja.lisa::before{display:none}
+  .hoja-tit{padding:14px 16px 10px calc(var(--mx) + 14px);border-bottom:2px solid var(--renglon);font-weight:700;font-size:20px;line-height:1.25}
+  .hoja.lisa .hoja-tit{padding-left:16px}
+  .hoja-tit small{display:block;font-weight:400;font-size:16px;color:var(--tinta-2);margin-top:2px}
+  .pad{padding:14px 16px 16px}
+
+  /* Portada: la parte de arriba de la hoja, con renglones dibujados */
+  .portada{padding:10px 16px 18px calc(var(--mx) + 14px);
+    background-image:repeating-linear-gradient(to bottom,transparent 0 39px,var(--renglon) 39px 40px);background-position:0 10px}
+  .pt-lbl{color:var(--tinta-2);line-height:40px;font-size:18px}
+  .pt-monto{font:700 58px/80px var(--mano);letter-spacing:-.5px;white-space:nowrap}
+  .pt-nombre{font:700 34px/40px var(--mano);padding-top:6px;overflow-wrap:anywhere}
+  .pt-frase{margin:0;line-height:40px;font-size:18px}
+  .pt-frase b{font-family:var(--mano);font-size:23px}
+  .portada .apila{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+
+  /* Renglones */
+  .renglon{display:grid;grid-template-columns:var(--mx) 1fr auto;align-items:center;width:100%;min-height:66px;
+    background:none;border:0;border-bottom:1px solid var(--renglon);text-align:left;padding:8px 14px 8px 0}
+  .renglon:last-child{border-bottom:0}
+  button.renglon:active{background:#f4f7fb}
+  .mg{font:700 17px/1.1 var(--mano);color:var(--tinta-2);text-align:center;padding:0 6px}
+  .mg.letra{font-size:28px;color:var(--tinta-3)}
+  .mg.letra.rojo{color:var(--rojo)}
+  .cuerpo{padding-left:14px;min-width:0}
+  .cuerpo b{display:block;overflow-wrap:anywhere}
+  .cuerpo > span{display:block;font-size:16px;color:var(--tinta-2)}
+  .cuerpo > span.rojo{color:var(--rojo);font-weight:700}
+  .valor{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:10px}
+  .valor.mano{font-size:23px}
+  .renglon.vacio{color:var(--tinta-2);min-height:90px}
+
+  /* Renglón que se puede marcar para cobrar */
+  .renglon.item{grid-template-columns:var(--mx) 1fr auto auto;transition:background .2s}
+  .res{background-image:linear-gradient(to bottom,transparent 30%,var(--resaltador) 30%,var(--resaltador) 94%,transparent 94%);
+    background-repeat:no-repeat;background-size:0% 100%;transition:background-size .3s ease-out;
+    padding:0 3px;margin:0 -3px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+  .item[aria-pressed="true"]{background:var(--resaltado-fondo)}
+  .item[aria-pressed="true"] .res{background-size:100% 100%}
+  .ck{width:34px;height:34px;border-radius:50%;border:2px solid var(--renglon);display:grid;place-items:center;margin-left:12px;
+    color:transparent;transition:background .15s,border-color .15s}
+  .ck svg{width:20px;height:20px}
+  .item[aria-pressed="true"] .ck{background:var(--tinta);border-color:var(--tinta);color:#fff}
+  .item.corregir .ck{border-color:#f1c2bd;color:var(--rojo)}
+  .tachado{text-decoration:line-through;text-decoration-color:var(--verde);text-decoration-thickness:2px;color:var(--tinta-2)}
+
+  /* ---------- Botones ---------- */
+  .btn{display:flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:16px;padding:12px 18px;min-height:58px;width:100%;
+    font-weight:700;font-size:19px;line-height:1.15;text-align:center;text-decoration:none}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.38}
+  .btn.doble{flex-direction:column;gap:2px}
+  .btn small{font-weight:400;font-size:15px;opacity:.9}
+  .btn-tinta{background:var(--tinta);color:#fff}
+  .btn-verde{background:var(--verde);color:#fff}
+  .btn-rojo{background:var(--rojo);color:#fff}
+  .btn-linea{background:#fff;color:var(--tinta);box-shadow:inset 0 0 0 2px var(--renglon)}
+  .fila{display:flex;gap:10px}
+  .fila > *{flex:1}
+  .link{background:none;border:0;color:var(--tinta);font-weight:700;text-decoration:underline;text-decoration-color:var(--tinta-3);
+    text-underline-offset:4px;padding:10px 6px;font-size:17px}
+  .pie{display:flex;flex-direction:column;align-items:center;margin-top:-4px}
+
+  /* ---------- Campos ---------- */
+  .campo{width:100%;padding:13px 14px;border-radius:14px;border:2px solid var(--renglon);background:#fff;font-size:19px}
+  .campo:focus{outline:none;border-color:var(--tinta)}
+  .buscar-wrap{position:relative;padding:10px 14px 10px calc(var(--mx) + 14px);border-bottom:1px solid var(--renglon)}
+  .hoja.lisa .buscar-wrap{padding-left:14px}
+  .buscar-wrap svg{position:absolute;left:calc(var(--mx) + 28px);top:50%;transform:translateY(-50%);width:20px;height:20px;color:var(--tinta-3);pointer-events:none}
+  .hoja.lisa .buscar-wrap svg{left:28px}
+  .buscar-wrap input{padding-left:44px}
+  .etq{display:block;font-weight:700;margin:14px 0 6px}
+  .etq:first-child{margin-top:0}
+
+  /* ---------- Escoger cliente ---------- */
+  .personas{display:flex;flex-wrap:wrap;gap:8px}
+  .personas:not(:empty){margin-bottom:12px}
+  .persona{display:flex;align-items:center;gap:8px;background:#fff;border:2px solid var(--renglon);border-radius:999px;
+    padding:5px 16px 5px 5px;font-weight:700;min-height:50px;max-width:100%;text-align:left}
+  .persona .ini{width:36px;height:36px;flex:none;border-radius:50%;background:var(--mesa);display:grid;place-items:center;font:700 19px/1 var(--mano);padding-top:3px}
+  .persona.nuevo{border-style:dashed;border-color:var(--tinta-3)}
+  .persona.nuevo .ini{background:var(--tinta);color:#fff;font-family:var(--letra)}
+  .elegido{display:flex;align-items:center;gap:10px}
+  .elegido .nom{flex:1;min-width:0}
+  .elegido .nom div:first-child{font:700 30px/1.15 var(--mano);overflow-wrap:anywhere;padding-top:4px}
+  .elegido .nom div:last-child{font-size:16px;color:var(--tinta-2)}
+
+  /* ---------- Fichas de productos ---------- */
+  .fichas{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:10px}
+  .ficha{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:4px;background:#fff;border:2px solid var(--renglon);
+    border-radius:14px;padding:10px 12px;min-height:76px;text-align:left}
+  .ficha b{font-size:17px;line-height:1.2;overflow-wrap:anywhere}
+  .ficha > span{color:var(--tinta-2);font-size:16px}
+  .ficha.sel{border-color:var(--tinta);background:#fff6c4}
+  .ficha .n{position:absolute;top:-10px;right:-8px;min-width:32px;height:32px;padding:0 8px;border-radius:999px;background:var(--tinta);color:#fff;
+    font-weight:700;font-size:17px;display:grid;place-items:center;box-shadow:0 0 0 3px #fff}
+  .ficha-otra{flex-direction:row;align-items:center;justify-content:center;gap:8px;border-style:dashed;border-color:var(--tinta-3);background:transparent;font-weight:700}
+  .ficha-otra .mas{font-size:26px;line-height:1}
+
+  /* Carrito */
+  .cant-mg{font-size:30px;color:var(--tinta)}
+  .ctrl{display:flex;gap:8px}
+  .ctrl button{width:46px;height:46px;border-radius:12px;border:2px solid var(--renglon);background:#fff;font-size:26px;font-weight:700;line-height:1;display:grid;place-items:center}
+  .fecha-venta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px 10px calc(var(--mx) + 14px);border-bottom:1px solid var(--renglon);font-size:17px}
+
+  /* ---------- Parte de abajo fija ---------- */
+  .dock{position:fixed;left:0;right:0;bottom:0;z-index:20}
+  .dock.sobre-nav{bottom:calc(var(--nav-h) + env(safe-area-inset-bottom))}
+  .dock-fab{padding:0 12px 12px}
+  .dock-fab .btn{max-width:536px;margin:0 auto;font-size:21px;min-height:62px;box-shadow:0 12px 24px -10px rgba(28,42,74,.7)}
+  .barra{background:#fff;border-top:1px solid #d5dde8;box-shadow:0 -8px 20px -12px rgba(28,42,74,.35);padding:10px 12px calc(12px + env(safe-area-inset-bottom))}
+  .barra-in{max-width:536px;margin:0 auto}
+  .barra-info{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;min-height:34px;color:var(--tinta-2);font-size:17px}
+  .barra-info b{font:700 28px/1 var(--mano);color:var(--tinta)}
+  .barra-info b.rojo{color:var(--rojo)} .barra-info b.verde{color:var(--verde)}
+
+  nav{position:fixed;bottom:0;left:0;right:0;z-index:15;background:#fff;border-top:1px solid #d5dde8;display:flex;
+    height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom)}
+  nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--tinta-2);text-decoration:none;font-size:15px;font-weight:700}
+  nav svg{width:26px;height:26px}
+  nav a.activo{color:var(--tinta)}
+  nav a.activo .lbl{background:linear-gradient(to bottom,transparent 35%,var(--resaltador) 35%,var(--resaltador) 95%,transparent 95%);padding:0 5px}
+
+  /* Nota amarilla (recordatorio de copia) */
+  .nota{display:flex;align-items:center;gap:12px;background:#fff1a0;padding:12px 14px;margin-bottom:16px;border-radius:2px 2px 14px 2px;
+    box-shadow:0 8px 16px -10px rgba(28,42,74,.5)}
+  .nota p{margin:0;flex:1;font-size:17px;line-height:1.3}
+  .nota .btn{width:auto;min-height:46px;padding:8px 14px;font-size:17px}
+
+  /* ---------- Ventana emergente ---------- */
+  .velo{position:fixed;inset:0;background:rgba(20,30,52,.5);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+  .panel{background:#fff;width:100%;max-width:560px;border-radius:24px 24px 0 0;padding:22px 18px calc(18px + env(safe-area-inset-bottom));
+    max-height:92vh;overflow:auto;animation:sube .2s ease-out}
+  .panel h3{margin:0 0 12px;font-size:23px;line-height:1.2}
+  .panel p{margin:0 0 10px}
+  .panel .botones{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .panel .lista{background:var(--mesa);border-radius:14px;padding:2px 14px;max-height:32vh;overflow:auto;margin-bottom:6px}
+  .panel .lista div{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--renglon);font-size:17px}
+  .panel .lista div:last-child{border-bottom:0}
+  .marca{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:var(--mesa);font-weight:700;margin-top:14px}
+  .marca input{width:28px;height:28px;accent-color:var(--tinta);flex:none}
+  @keyframes sube{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+  @media (min-width:600px){.velo{align-items:center}.panel{border-radius:24px}}
+
+  .toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(70px + env(safe-area-inset-top));z-index:60;background:var(--tinta);color:#fff;
+    border-radius:14px;padding:12px 16px;display:flex;gap:14px;align-items:center;width:max-content;max-width:calc(100% - 24px);
+    box-shadow:0 10px 24px -8px rgba(0,0,0,.45);font-size:17px;animation:baja .2s ease-out}
+  .toast button{background:var(--resaltador);color:var(--tinta);border:0;border-radius:10px;font-weight:700;padding:8px 12px;font-size:16px}
+  @keyframes baja{from{transform:translate(-50%,-12px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <button class="btn-volver oculto" id="volver" aria-label="Volver">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>Volver
+  </button>
+  <h1 id="titulo">Fiados</h1>
+</header>
+
+<main id="app"></main>
+
+<div id="dock" class="dock"></div>
+
+<nav id="nav">
+  <a href="#/" data-tab="inicio">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.8a3.3 3.3 0 0 1 0 6.4M18 14.8c1.9.6 3.1 2.3 3.5 5.2"/></svg>
+    <span class="lbl">Clientes</span></a>
+  <a href="#/productos" data-tab="productos">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16l-1.5 10.4A1.6 1.6 0 0 1 16.9 21H7.1a1.6 1.6 0 0 1-1.6-1.6z"/><path d="M8.5 9 12 3.5 15.5 9"/></svg>
+    <span class="lbl">Productos</span></a>
+  <a href="#/copia" data-tab="copia">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2.4A1.6 1.6 0 0 0 5.6 21h12.8a1.6 1.6 0 0 0 1.6-1.6V17"/></svg>
+    <span class="lbl">Copia</span></a>
+</nav>
+
+<script>
+'use strict';
+/* =========================================================
+   DATOS — todo se guarda en el celular (localStorage)
+   ========================================================= */
+const CLAVE = 'fiados-tienda-v1';
+const BASE = () => ({ tienda: 'Mi Tiendita', clientes: [], productos: [], items: [], ultimaCopia: null });
+let db = BASE();
+
+function cargar() {
+  try { const raw = localStorage.getItem(CLAVE); if (raw) db = Object.assign(BASE(), JSON.parse(raw)); }
+  catch (e) { console.error(e); }
+}
+function guardar() {
+  try { localStorage.setItem(CLAVE, JSON.stringify(db)); }
+  catch (e) { toast('No se pudo guardar. Haga una copia de seguridad ya.'); }
+}
+
+/* ---------- utilidades ---------- */
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const plata = n => '$' + Math.round(n || 0).toLocaleString('es-CO');
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const normal = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const limpiaNombre = s => String(s || '').trim().replace(/\s+/g, ' ');
+const limpiaNumero = v => Math.max(0, Math.round(Number(String(v).replace(/[^\d]/g, '')) || 0));
+const inicial = n => (String(n).trim()[0] || '?').toUpperCase();
+const hoy = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const aFecha = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const dias = s => Math.round((aFecha(hoy()) - aFecha(s)) / 864e5);
+function fCorta(s) {          // para el margen: "Hoy", "Ayer", "10 nov"
+  if (!s) return '';
+  const n = dias(s); if (n === 0) return 'Hoy'; if (n === 1) return 'Ayer';
+  const d = aFecha(s), op = { day: 'numeric', month: 'short' };
+  if (d.getFullYear() !== new Date().getFullYear()) op.year = '2-digit';
+  return d.toLocaleDateString('es-CO', op).replace(/\./g, '');
+}
+function fLarga(s) {          // "hoy", "ayer", "el 10 de noviembre"
+  const n = dias(s); if (n === 0) return 'hoy'; if (n === 1) return 'ayer';
+  const d = aFecha(s), op = { day: 'numeric', month: 'long' };
+  if (d.getFullYear() !== new Date().getFullYear()) op.year = 'numeric';
+  return 'el ' + d.toLocaleDateString('es-CO', op);
+}
+const haceCuanto = s => { const n = dias(s); return n <= 0 ? 'hoy' : n === 1 ? 'ayer' : `hace ${n} días`; };
+const nombreMes = () => new Date().toLocaleDateString('es-CO', { month: 'long' });
+const ICO_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+const ICO_BORRAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5A1.6 1.6 0 0 0 8.6 21h6.8a1.6 1.6 0 0 0 1.6-1.5L18 7M9 7V4.5h6V7"/></svg>';
+const ICO_BUSCAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>';
+
+/* ---------- cálculos ---------- */
+const cliente = id => db.clientes.find(c => c.id === id);
+const pendientes = cid => db.items.filter(i => i.clienteId === cid && !i.fechaPago);
+const pagados = cid => db.items.filter(i => i.clienteId === cid && i.fechaPago);
+const suma = arr => arr.reduce((s, i) => s + i.precio * i.cant, 0);
+const deuda = cid => suma(pendientes(cid));
+function ultimaCompra(cid) { let u = ''; for (const i of db.items) if (i.clienteId === cid && i.fechaCompra > u) u = i.fechaCompra; return u; }
+function deudaMasVieja(cid) { let u = ''; for (const i of db.items) if (i.clienteId === cid && !i.fechaPago && (!u || i.fechaCompra < u)) u = i.fechaCompra; return u; }
+function vecesVendido() { const m = {}; for (const i of db.items) { const k = normal(i.nombre); m[k] = (m[k] || 0) + i.cant; } return m; }
+
+/* ---------- deshacer ---------- */
+let copiaDeshacer = null;
+const tomarFoto = () => { copiaDeshacer = JSON.stringify(db); };
+function deshacer() {
+  if (!copiaDeshacer) return;
+  db = JSON.parse(copiaDeshacer); copiaDeshacer = null;
+  guardar(); render(); toast('Listo, quedó como antes.');
+}
+
+/* ---------- aviso corto (arriba) ---------- */
+let toastTimer;
+function toast(msg, conDeshacer = false) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast'; t.setAttribute('role', 'status');
+  t.innerHTML = `<span>${esc(msg)}</span>` + (conDeshacer ? '<button>Deshacer</button>' : '');
+  if (conDeshacer) t.querySelector('button').onclick = () => { t.remove(); deshacer(); };
+  document.body.appendChild(t);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.remove(), conDeshacer ? 7000 : 3000);
+}
+
+/* ---------- ventana emergente ----------
+   botones: [{txt, val, clase, validar}] → devuelve {val, datos} o null */
+function ventana({ titulo, html = '', botones, enfocar = true }) {
+  return new Promise(resolve => {
+    const velo = document.createElement('div');
+    velo.className = 'velo';
+    velo.innerHTML = `<div class="panel" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
+      <h3>${esc(titulo)}</h3>${html}
+      <div class="botones">${botones.map((b, i) => `<button class="btn ${b.clase || 'btn-linea'}" data-i="${i}">${esc(b.txt)}</button>`).join('')}</div>
+    </div>`;
+    const cerrar = r => { velo.remove(); resolve(r); };
+    velo.addEventListener('click', e => {
+      if (e.target === velo) return cerrar(null);
+      const b = e.target.closest('[data-i]'); if (!b) return;
+      const boton = botones[+b.dataset.i], datos = {};
+      velo.querySelectorAll('[name]').forEach(el => { datos[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
+      if (boton.validar) { const err = boton.validar(datos); if (err) { toast(err); return; } }
+      cerrar(boton.val == null ? null : { val: boton.val, datos });
+    });
+    document.body.appendChild(velo);
+    if (enfocar) { const p = velo.querySelector('input:not([type=checkbox]):not([type=date])'); if (p) setTimeout(() => p.focus(), 250); }
+  });
+}
+
+/* =========================================================
+   NAVEGACIÓN (con # para que el botón "atrás" del celular funcione)
+   ========================================================= */
+let pasos = 0;
+window.addEventListener('hashchange', () => { pasos++; render(); });
+$('#volver').onclick = () => { if (pasos > 0) history.back(); else location.hash = '#/'; };
+const ir = h => { location.hash = h; };
+function ruta() {
+  const p = (location.hash || '#/').slice(2).split('/');
+  return { vista: p[0] || 'inicio', id: p[1] ? decodeURIComponent(p[1]) : null };
+}
+
+let hashAnterior = null;
+function render() {
+  const r = ruta();
+  if (location.hash !== hashAnterior) { hashAnterior = location.hash; window.scrollTo(0, 0); }
+  const sub = r.vista === 'cliente' || r.vista === 'venta';
+  $('#volver').classList.toggle('oculto', !sub);
+  $('#nav').classList.toggle('oculto', sub);
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('activo', a.dataset.tab === r.vista));
+  ponerDock('', !sub);
+  if (r.vista === 'cliente' && cliente(r.id)) return vistaCliente(r.id);
+  if (r.vista === 'venta') return vistaVenta(r.id);
+  if (r.vista === 'productos') return vistaProductos();
+  if (r.vista === 'copia') return vistaCopia();
+  return vistaInicio();
+}
+function titulo(t, doc) { $('#titulo').textContent = t; document.title = doc || t; }
+function ponerDock(html, conNav) {
+  const d = $('#dock');
+  d.className = 'dock' + (conNav ? ' sobre-nav' : '');
+  d.innerHTML = html;
+  requestAnimationFrame(() => {
+    const h = d.offsetHeight + (conNav ? $('#nav').offsetHeight : 0);
+    document.body.style.paddingBottom = (h + 24) + 'px';
+  });
+}
+
+/* =========================================================
+   INICIO — cuánto le deben y la lista de clientes
+   ========================================================= */
+let textoBusqueda = '';
+function vistaInicio() {
+  titulo(db.tienda || 'Fiados');
+  const pend = db.items.filter(i => !i.fechaPago);
+  const total = suma(pend);
+  const deudores = new Set(pend.map(i => i.clienteId)).size;
+  const mes = hoy().slice(0, 7);
+  const recibido = suma(db.items.filter(i => i.fechaPago && i.fechaPago.slice(0, 7) === mes));
+
+  let nota = '';
+  if (db.items.length >= 5) {
+    const n = db.ultimaCopia ? dias(db.ultimaCopia) : null;
+    if (n === null || n >= 7) nota = `<div class="nota"><p>${n === null ? 'Todavía no ha guardado una copia de sus fiados.' : `Su última copia fue ${haceCuanto(db.ultimaCopia)}.`}</p><a class="btn btn-tinta" href="#/copia">Guardar copia</a></div>`;
+  }
+
+  const frase = (deudores === 0 ? 'Nadie le debe.' : deudores === 1 ? 'Un cliente le debe.' : `${deudores} clientes le deben.`)
+    + ` En ${nombreMes()} ha recibido <b>${plata(recibido)}</b>.`;
+
+  app.innerHTML = `
+    ${nota}
+    <section class="hoja portada">
+      <div class="pt-lbl">Le deben</div>
+      <div class="pt-monto ${total ? 'rojo' : 'verde'}">${plata(total)}</div>
+      <p class="pt-frase">${frase}</p>
+    </section>
+    <section class="hoja">
+      <div class="hoja-tit">Clientes</div>
+      ${db.clientes.length > 5 ? `<div class="buscar-wrap">${ICO_BUSCAR}<input class="campo" id="buscar" type="search" placeholder="Buscar por nombre" value="${esc(textoBusqueda)}" autocomplete="off"></div>` : ''}
+      <div id="lista"></div>
+    </section>`;
+
+  const pintarLista = () => {
+    if (!db.clientes.length) {
+      $('#lista').innerHTML = `<div class="renglon vacio"><span class="mg"></span><span class="cuerpo">Aquí aparecerán sus clientes. Toque <b style="display:inline">Anotar venta</b> para empezar.</span></div>`;
+      return;
+    }
+    const q = db.clientes.length > 5 ? normal(textoBusqueda) : '';
+    const lista = db.clientes
+      .map(c => ({ c, d: deuda(c.id), v: deudaMasVieja(c.id), u: ultimaCompra(c.id) }))
+      .filter(x => !q || normal(x.c.nombre).includes(q))
+      .sort((a, b) => b.d - a.d || a.c.nombre.localeCompare(b.c.nombre, 'es'));
+    if (!lista.length) { $('#lista').innerHTML = `<div class="renglon vacio"><span class="mg"></span><span class="cuerpo">No hay nadie con ese nombre.</span></div>`; return; }
+    $('#lista').innerHTML = lista.map(({ c, d, v, u }) => {
+      const sub = d ? `Debe desde ${haceCuanto(v)}` : (u ? `Última compra ${haceCuanto(u)}` : 'Sin compras');
+      const viejo = d && dias(v) > 30;
+      return `<button class="renglon" data-cliente="${esc(c.id)}">
+        <span class="mg letra ${d ? 'rojo' : ''}">${esc(inicial(c.nombre))}</span>
+        <span class="cuerpo"><b>${esc(c.nombre)}</b><span class="${viejo ? 'rojo' : ''}">${sub}</span></span>
+        <span class="valor mano ${d ? 'rojo' : 'verde'}">${d ? plata(d) : 'Al día'}</span>
+      </button>`;
+    }).join('');
+  };
+  pintarLista();
+  if ($('#buscar')) $('#buscar').addEventListener('input', e => { textoBusqueda = e.target.value; pintarLista(); });
+  $('#lista').onclick = e => { const b = e.target.closest('[data-cliente]'); if (b) ir('#/cliente/' + encodeURIComponent(b.dataset.cliente)); };
+
+  ponerDock(`<div class="dock-fab"><button class="btn btn-tinta" id="nuevaVenta">＋ Anotar venta</button></div>`, true);
+  $('#nuevaVenta').onclick = () => { borrador = null; ir('#/venta'); };
+}
+
+/* =========================================================
+   ANOTAR VENTA
+   ========================================================= */
+let borrador = null;
+let textoProducto = '';
+const nuevoBorrador = cid => ({ clienteId: cid || null, nombreNuevo: '', fecha: hoy(), lineas: [] });
+
+function vistaVenta(cidInicial) {
+  if (!borrador) borrador = nuevoBorrador(cidInicial && cliente(cidInicial) ? cidInicial : null);
+  titulo('Anotar venta');
+  textoProducto = '';
+  app.innerHTML = `
+    <section class="hoja lisa"><div class="hoja-tit">¿Quién lleva?</div><div class="pad" id="secCliente"></div></section>
+    <section class="hoja lisa"><div class="hoja-tit">¿Qué lleva?<small>Toque una vez por cada unidad</small></div>
+      ${db.productos.length > 10 ? `<div class="buscar-wrap">${ICO_BUSCAR}<input class="campo" id="buscaProd" type="search" placeholder="Buscar producto" autocomplete="off"></div>` : ''}
+      <div class="pad"><div class="fichas" id="fichas"></div></div>
+    </section>
+    <section class="hoja"><div class="hoja-tit">La cuenta</div>
+      <div class="fecha-venta"><span id="fechaTxt"></span><button class="link" id="cambiaFecha">Cambiar fecha</button></div>
+      <div id="carrito"></div>
+    </section>`;
+
+  pintarCliente(); pintarFichas(); pintarFecha(); pintarCarrito();
+
+  if ($('#buscaProd')) $('#buscaProd').addEventListener('input', e => { textoProducto = e.target.value; pintarFichas(); });
+  $('#cambiaFecha').onclick = cambiarFecha;
+  $('#fichas').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.otro) return otroProducto();
+    const p = db.productos.find(x => x.id === b.dataset.prod); if (p) agregarLinea(p.nombre, p.precio, 1);
+  };
+  $('#carrito').onclick = e => {
+    const b = e.target.closest('[data-acc]'); if (!b) return;
+    const i = +b.dataset.idx, l = borrador.lineas[i];
+    if (b.dataset.acc === 'mas') l.cant++;
+    if (b.dataset.acc === 'menos') { l.cant--; if (l.cant <= 0) borrador.lineas.splice(i, 1); }
+    pintarCarrito(); pintarFichas();
+  };
+}
+
+function pintarFecha() {
+  $('#fechaTxt').innerHTML = `Fecha: <b>${fLarga(borrador.fecha).replace(/^el /, '')}</b>`;
+}
+async function cambiarFecha() {
+  const r = await ventana({
+    titulo: '¿Qué día fue la compra?',
+    html: `<input class="campo" type="date" name="fecha" value="${borrador.fecha}" max="${hoy()}">`,
+    botones: [{ txt: 'Listo', val: 'ok', clase: 'btn-tinta' }, { txt: 'Cancelar' }], enfocar: false
+  });
+  if (r && r.datos.fecha) { borrador.fecha = r.datos.fecha > hoy() ? hoy() : r.datos.fecha; pintarFecha(); }
+}
+
+function pintarCliente() {
+  const sec = $('#secCliente');
+  const c = borrador.clienteId && cliente(borrador.clienteId);
+  if (c || borrador.nombreNuevo) {
+    const nombre = c ? c.nombre : borrador.nombreNuevo;
+    const d = c ? deuda(c.id) : 0;
+    sec.innerHTML = `<div class="elegido"><div class="nom"><div>${esc(nombre)}</div><div>${c ? (d ? `Ya debe ${plata(d)}` : 'Está al día') : 'Cliente nuevo'}</div></div>
+      <button class="btn btn-linea" id="cambiarCliente" style="width:auto;min-height:48px">Cambiar</button></div>`;
+    $('#cambiarCliente').onclick = () => { borrador.clienteId = null; borrador.nombreNuevo = ''; pintarCliente(); pintarCarrito(); };
+    return;
+  }
+  sec.innerHTML = `<div class="personas" id="personas"></div>
+    <input class="campo" id="buscaCliente" placeholder="${db.clientes.length ? 'O escriba el nombre' : 'Escriba el nombre del cliente'}" autocomplete="off" autocapitalize="words">`;
+  const inp = $('#buscaCliente');
+  const pintar = () => {
+    const q = normal(inp.value);
+    let lista;
+    if (q) lista = db.clientes.filter(c => normal(c.nombre).includes(q)).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).slice(0, 8);
+    else lista = [...db.clientes].sort((a, b) => ultimaCompra(b.id).localeCompare(ultimaCompra(a.id))).slice(0, 8);
+    const exacto = db.clientes.some(c => normal(c.nombre) === q);
+    $('#personas').innerHTML =
+      lista.map(c => `<button class="persona" data-c="${esc(c.id)}"><span class="ini">${esc(inicial(c.nombre))}</span>${esc(c.nombre)}</button>`).join('') +
+      (q && !exacto ? `<button class="persona nuevo" data-nuevo="1"><span class="ini">+</span>Nuevo: ${esc(limpiaNombre(inp.value))}</button>` : '');
+  };
+  inp.addEventListener('input', pintar);
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('#personas button'); if (b) b.click(); } });
+  $('#personas').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.c) borrador.clienteId = b.dataset.c;
+    else borrador.nombreNuevo = limpiaNombre(inp.value);
+    pintarCliente(); pintarCarrito();
+  };
+  pintar();
+}
+
+function pintarFichas() {
+  const q = normal(textoProducto);
+  const veces = vecesVendido();
+  const prods = db.productos.filter(p => !q || normal(p.nombre).includes(q))
+    .sort((a, b) => (veces[normal(b.nombre)] || 0) - (veces[normal(a.nombre)] || 0) || a.nombre.localeCompare(b.nombre, 'es'));
+  $('#fichas').innerHTML = prods.map(p => {
+    const l = borrador.lineas.find(x => x.nombre === p.nombre && x.precio === p.precio);
+    return `<button class="ficha ${l ? 'sel' : ''}" data-prod="${esc(p.id)}">${l ? `<span class="n">${l.cant}</span>` : ''}<b>${esc(p.nombre)}</b><span>${plata(p.precio)}</span></button>`;
+  }).join('') + `<button class="ficha ficha-otra" data-otro="1"><span class="mas">+</span>${db.productos.length ? 'Otro producto' : 'Escribir producto'}</button>`;
+}
+
+function agregarLinea(nombre, precio, cant) {
+  const l = borrador.lineas.find(x => x.nombre === nombre && x.precio === precio);
+  if (l) l.cant += cant; else borrador.lineas.push({ nombre, precio, cant });
+  pintarCarrito(); pintarFichas();
+}
+
+function pintarCarrito() {
+  const total = suma(borrador.lineas);
+  $('#carrito').innerHTML = borrador.lineas.length
+    ? borrador.lineas.map((l, i) => `
+      <div class="renglon">
+        <span class="mg cant-mg">${l.cant}</span>
+        <span class="cuerpo"><b>${esc(l.nombre)}</b><span>${l.cant} × ${plata(l.precio)} = ${plata(l.precio * l.cant)}</span></span>
+        <span class="ctrl"><button data-acc="menos" data-idx="${i}" aria-label="Quitar uno">−</button><button data-acc="mas" data-idx="${i}" aria-label="Agregar uno">+</button></span>
+      </div>`).join('')
+    : `<div class="renglon vacio"><span class="mg"></span><span class="cuerpo">Todavía no hay nada. Toque los productos de arriba.</span></div>`;
+
+  const hayCliente = borrador.clienteId || borrador.nombreNuevo;
+  const listo = borrador.lineas.length && hayCliente;
+  const falta = !hayCliente ? 'Falta escoger quién lleva' : !borrador.lineas.length ? 'Falta escoger qué lleva' : 'Total';
+  ponerDock(`<div class="barra"><div class="barra-in">
+      <div class="barra-info"><span>${falta}</span><b>${plata(total)}</b></div>
+      <div class="fila">
+        <button class="btn btn-tinta doble" id="vFiado" ${listo ? '' : 'disabled'}>Fiado<small>paga después</small></button>
+        <button class="btn btn-verde doble" id="vPago" ${listo ? '' : 'disabled'}>Pagó ya<small>de una vez</small></button>
+      </div></div></div>`, false);
+  $('#vFiado').onclick = () => guardarVenta(false);
+  $('#vPago').onclick = () => guardarVenta(true);
+}
+
+async function otroProducto() {
+  const r = await ventana({
+    titulo: 'Producto nuevo',
+    html: `<label class="etq">Nombre</label><input class="campo" name="nombre" placeholder="Ej: Empanada" autocomplete="off" autocapitalize="sentences">
+      <div class="fila" style="margin-top:14px">
+        <div><label class="etq">Precio de uno</label><input class="campo" name="precio" inputmode="numeric" placeholder="2500"></div>
+        <div style="flex:.6"><label class="etq">Cantidad</label><input class="campo" name="cant" inputmode="numeric" value="1"></div>
+      </div>
+      <label class="marca"><input type="checkbox" name="guardar" checked> Guardarlo en mi lista para la próxima vez</label>`,
+    botones: [
+      { txt: 'Agregar a la cuenta', val: 'ok', clase: 'btn-tinta', validar: d => !d.nombre.trim() ? 'Escriba el nombre del producto' : !limpiaNumero(d.precio) ? 'Escriba el precio' : '' },
+      { txt: 'Cancelar' }
+    ]
+  });
+  if (!r) return;
+  const nombre = limpiaNombre(r.datos.nombre), precio = limpiaNumero(r.datos.precio);
+  const cant = Math.max(1, limpiaNumero(r.datos.cant) || 1);
+  if (r.datos.guardar) {
+    const ya = db.productos.find(p => normal(p.nombre) === normal(nombre));
+    if (ya) ya.precio = precio; else db.productos.push({ id: uid(), nombre, precio });
+    guardar();
+  }
+  agregarLinea(nombre, precio, cant);
+}
+
+function guardarVenta(pagado) {
+  if (!borrador.lineas.length) return toast('Escoja al menos un producto');
+  let cid = borrador.clienteId;
+  if (!cid && !borrador.nombreNuevo) return toast('Escoja quién lleva');
+  tomarFoto();
+  if (!cid) {
+    const ya = db.clientes.find(c => normal(c.nombre) === normal(borrador.nombreNuevo));
+    if (ya) cid = ya.id;
+    else { cid = uid(); db.clientes.push({ id: cid, nombre: borrador.nombreNuevo, telefono: '' }); }
+  }
+  const fecha = borrador.fecha || hoy(), total = suma(borrador.lineas);
+  for (const l of borrador.lineas)
+    db.items.push({ id: uid(), clienteId: cid, nombre: l.nombre, precio: l.precio, cant: l.cant, fechaCompra: fecha, fechaPago: pagado ? fecha : null });
+  guardar();
+  borrador = null;
+  toast(pagado ? `Venta pagada: ${plata(total)}` : `Fiado anotado: ${plata(total)}`, true);
+  location.replace('#/cliente/' + encodeURIComponent(cid));
+}
+
+/* =========================================================
+   CLIENTE — lo que debe, cobrar, lo que ya pagó
+   ========================================================= */
+let seleccion = new Set(), clienteSel = null, modoCorregir = false, verTodo = false;
+
+function vistaCliente(cid) {
+  if (clienteSel !== cid) { seleccion = new Set(); clienteSel = cid; modoCorregir = false; verTodo = false; }
+  const c = cliente(cid);
+  titulo(db.tienda || 'Fiados', c.nombre);
+  const pend = pendientes(cid).sort((a, b) => a.fechaCompra.localeCompare(b.fechaCompra));
+  for (const id of [...seleccion]) if (!pend.some(i => i.id === id)) seleccion.delete(id);
+  if (!pend.length) modoCorregir = false;
+  const pag = pagados(cid).sort((a, b) => b.fechaPago.localeCompare(a.fechaPago) || b.fechaCompra.localeCompare(a.fechaCompra));
+  const d = suma(pend);
+  const vieja = pend[0] && pend[0].fechaCompra;
+  const nDias = vieja ? dias(vieja) : 0;
+
+  let filasPend = '', fechaPrev = null;
+  for (const i of pend) {
+    const mostrar = i.fechaCompra !== fechaPrev; fechaPrev = i.fechaCompra;
+    filasPend += `<button class="renglon item ${modoCorregir ? 'corregir' : ''}" data-item="${esc(i.id)}" aria-pressed="${!modoCorregir && seleccion.has(i.id)}">
+      <span class="mg">${mostrar ? fCorta(i.fechaCompra) : ''}</span>
+      <span class="cuerpo"><b><span class="res">${esc(i.nombre)}${i.cant > 1 ? ` × ${i.cant}` : ''}</span></b>${i.cant > 1 ? `<span>${plata(i.precio)} cada uno</span>` : ''}</span>
+      <span class="valor">${plata(i.precio * i.cant)}</span>
+      <span class="ck" aria-hidden="true">${modoCorregir ? ICO_BORRAR : ICO_CHECK}</span>
+    </button>`;
+  }
+  const verPag = verTodo ? pag : pag.slice(0, 12);
+  const filasPag = verPag.map(i => `
+    <button class="renglon" data-pagado="${esc(i.id)}">
+      <span class="mg verde">${fCorta(i.fechaPago)}</span>
+      <span class="cuerpo"><b class="tachado">${esc(i.nombre)}${i.cant > 1 ? ` × ${i.cant}` : ''}</b><span>${i.fechaPago === i.fechaCompra ? 'Pagó el mismo día' : 'Lo llevó ' + fLarga(i.fechaCompra).replace(/^el /, 'el ')}</span></span>
+      <span class="valor verde">${plata(i.precio * i.cant)}</span>
+    </button>`).join('');
+
+  app.innerHTML = `
+    <section class="hoja portada">
+      <div class="pt-nombre">${esc(c.nombre)}</div>
+      ${d ? `<div class="pt-lbl">Le debe</div><div class="pt-monto rojo">${plata(d)}</div>
+             <p class="pt-frase">Desde ${fLarga(vieja)}${nDias > 1 ? `, hace ${nDias} días` : ''}.</p>`
+          : `<div class="pt-monto verde" style="font-size:44px">Está al día</div>`}
+      <div class="apila">
+        <button class="btn btn-tinta" id="cVenta">＋ Anotar venta a ${esc(c.nombre.split(' ')[0])}</button>
+        ${d ? `<button class="btn btn-linea" id="cWhats">Enviarle la cuenta por WhatsApp</button>` : ''}
+      </div>
+    </section>
+
+    ${pend.length ? `
+    <section class="hoja">
+      <div class="hoja-tit">${modoCorregir ? 'Toque lo que quiere borrar' : 'Lo que debe'}<small>${modoCorregir ? 'Solo para lo que anotó por error' : 'Toque lo que le van a pagar'}</small></div>
+      <div id="pendientes">${filasPend}</div>
+    </section>` : ''}
+
+    <section class="hoja">
+      <div class="hoja-tit">Ya pagó<small>${pag.length ? 'Si marcó algo por error, tóquelo' : 'Aquí quedan las cosas que ya le pagaron'}</small></div>
+      <div id="pagados">${filasPag}</div>
+      ${pag.length > 12 && !verTodo ? `<div style="text-align:center;padding:4px 0 8px"><button class="link" id="verTodo">Ver todo (${pag.length})</button></div>` : ''}
+    </section>
+
+    <div class="pie">
+      ${pend.length ? `<button class="link" id="corregir">${modoCorregir ? 'Terminar de borrar' : 'Borrar algo anotado por error'}</button>` : ''}
+      <button class="link" id="cEditar">Cambiar nombre o celular</button>
+    </div>`;
+
+  $('#cVenta').onclick = () => { borrador = nuevoBorrador(cid); ir('#/venta/' + encodeURIComponent(cid)); };
+  if ($('#cWhats')) $('#cWhats').onclick = () => enviarCuenta(cid);
+  $('#cEditar').onclick = () => editarCliente(cid);
+  if ($('#verTodo')) $('#verTodo').onclick = () => { verTodo = true; vistaCliente(cid); };
+  if ($('#corregir')) $('#corregir').onclick = () => { modoCorregir = !modoCorregir; seleccion = new Set(); vistaCliente(cid); };
+  if ($('#pendientes')) $('#pendientes').onclick = e => {
+    const b = e.target.closest('[data-item]'); if (!b) return;
+    const id = b.dataset.item;
+    if (modoCorregir) return borrarItem(id);
+    seleccion.has(id) ? seleccion.delete(id) : seleccion.add(id);
+    b.setAttribute('aria-pressed', seleccion.has(id));
+    barraCobro(cid);
+  };
+  $('#pagados').onclick = e => { const b = e.target.closest('[data-pagado]'); if (b) despagar(b.dataset.pagado); };
+
+  if (modoCorregir) {
+    ponerDock(`<div class="barra"><div class="barra-in"><button class="btn btn-tinta" id="finCorregir">Terminar de borrar</button></div></div>`, false);
+    $('#finCorregir').onclick = () => { modoCorregir = false; vistaCliente(cid); };
+  } else if (pend.length) barraCobro(cid);
+}
+
+function barraCobro(cid) {
+  const pend = pendientes(cid);
+  const sel = pend.filter(i => seleccion.has(i.id));
+  const t = suma(sel), d = suma(pend);
+  ponerDock(`<div class="barra"><div class="barra-in">
+    ${sel.length
+      ? `<div class="barra-info"><span>Va a cobrar ${sel.length === 1 ? '1 cosa' : sel.length + ' cosas'}</span><b class="verde">${plata(t)}</b></div>
+         <div class="fila"><button class="btn btn-linea" id="pLimpiar" style="flex:.7">Desmarcar</button><button class="btn btn-verde" id="pSel">Cobrar ${plata(t)}</button></div>`
+      : `<div class="barra-info"><span>¿Le pagó todo?</span><b class="rojo">${plata(d)}</b></div>
+         <button class="btn btn-verde" id="pTodo">Cobrar todo</button>`}
+  </div></div>`, false);
+  if ($('#pLimpiar')) $('#pLimpiar').onclick = () => {
+    seleccion = new Set();
+    document.querySelectorAll('[data-item]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    barraCobro(cid);
+  };
+  if ($('#pSel')) $('#pSel').onclick = () => registrarPago(cid, sel);
+  if ($('#pTodo')) $('#pTodo').onclick = () => registrarPago(cid, pend);
+}
+
+async function registrarPago(cid, lista) {
+  if (!lista.length) return;
+  const total = suma(lista);
+  const r = await ventana({
+    titulo: `¿Recibió ${plata(total)}?`,
+    html: `<p>${esc(cliente(cid).nombre)} paga:</p>
+      <div class="lista">${lista.map(i => `<div><span>${esc(i.nombre)}${i.cant > 1 ? ' × ' + i.cant : ''}</span><b>${plata(i.precio * i.cant)}</b></div>`).join('')}</div>
+      <label class="etq">Día del pago</label>
+      <input class="campo" type="date" name="fecha" value="${hoy()}" max="${hoy()}">`,
+    botones: [{ txt: `Sí, recibí ${plata(total)}`, val: 'ok', clase: 'btn-verde' }, { txt: 'Cancelar' }], enfocar: false
+  });
+  if (!r) return;
+  tomarFoto();
+  const fecha = r.datos.fecha && r.datos.fecha <= hoy() ? r.datos.fecha : hoy();
+  const ids = new Set(lista.map(i => i.id));
+  db.items.forEach(i => { if (ids.has(i.id)) i.fechaPago = fecha; });
+  guardar();
+  seleccion = new Set();
+  toast(`Cobrado: ${plata(total)}`, true);
+  render();
+}
+
+async function borrarItem(id) {
+  const i = db.items.find(x => x.id === id); if (!i) return;
+  const r = await ventana({
+    titulo: '¿Borrar esto?',
+    html: `<p><b>${esc(i.nombre)}${i.cant > 1 ? ' × ' + i.cant : ''}</b>, ${plata(i.precio * i.cant)}</p><p style="color:var(--tinta-2)">Bórrelo solo si lo anotó por error. Si se lo pagaron, use «Cobrar».</p>`,
+    botones: [{ txt: 'Sí, borrar', val: 'ok', clase: 'btn-rojo' }, { txt: 'No, dejarlo' }]
+  });
+  if (!r) return;
+  tomarFoto();
+  db.items = db.items.filter(x => x.id !== id);
+  guardar(); toast('Borrado', true); render();
+}
+
+async function despagar(id) {
+  const i = db.items.find(x => x.id === id); if (!i) return;
+  const r = await ventana({
+    titulo: '¿Todavía lo debe?',
+    html: `<p><b>${esc(i.nombre)}${i.cant > 1 ? ' × ' + i.cant : ''}</b>, ${plata(i.precio * i.cant)}</p><p style="color:var(--tinta-2)">Vuelve a la lista de lo que debe.</p>`,
+    botones: [{ txt: 'Sí, todavía lo debe', val: 'ok', clase: 'btn-tinta' }, { txt: 'No, ya lo pagó' }]
+  });
+  if (!r) return;
+  tomarFoto();
+  i.fechaPago = null;
+  guardar(); toast('Volvió a lo que debe', true); render();
+}
+
+function enviarCuenta(cid) {
+  const c = cliente(cid);
+  const pend = pendientes(cid).sort((a, b) => a.fechaCompra.localeCompare(b.fechaCompra));
+  const lineas = pend.map(i => `• ${fCorta(i.fechaCompra)}: ${i.nombre}${i.cant > 1 ? ' x' + i.cant : ''} = ${plata(i.precio * i.cant)}`);
+  const texto = `Hola ${c.nombre}, esta es su cuenta en ${db.tienda || 'la tienda'}:\n\n${lineas.join('\n')}\n\n*Total: ${plata(suma(pend))}*\n\n¡Gracias!`;
+  const tel = (c.telefono || '').replace(/\D/g, '');
+  const num = tel ? (tel.length === 10 ? '57' + tel : tel) : '';
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(texto)}`, '_blank');
+}
+
+async function editarCliente(cid) {
+  const c = cliente(cid);
+  const r = await ventana({
+    titulo: 'Datos del cliente',
+    html: `<label class="etq">Nombre</label><input class="campo" name="nombre" value="${esc(c.nombre)}" autocomplete="off" autocapitalize="words">
+      <label class="etq">Celular (para enviarle la cuenta)</label><input class="campo" name="telefono" inputmode="tel" value="${esc(c.telefono || '')}" placeholder="3001234567">`,
+    botones: [
+      { txt: 'Guardar', val: 'ok', clase: 'btn-tinta', validar: d => !d.nombre.trim() ? 'El nombre no puede quedar vacío' : '' },
+      { txt: 'Borrar este cliente', val: 'borrar' },
+      { txt: 'Cancelar' }
+    ], enfocar: false
+  });
+  if (!r) return;
+  if (r.val === 'ok') {
+    c.nombre = limpiaNombre(r.datos.nombre); c.telefono = r.datos.telefono.trim();
+    guardar(); render(); toast('Datos guardados');
+    return;
+  }
+  const d = deuda(cid);
+  const ok = await ventana({
+    titulo: `¿Borrar a ${c.nombre}?`,
+    html: (d ? `<p class="rojo"><b>Todavía le debe ${plata(d)}.</b></p>` : '') + `<p>Se borra el cliente y todo lo anotado.</p>`,
+    botones: [{ txt: 'Sí, borrar cliente', val: 'ok', clase: 'btn-rojo' }, { txt: 'Cancelar' }]
+  });
+  if (!ok) return;
+  tomarFoto();
+  db.clientes = db.clientes.filter(x => x.id !== cid);
+  db.items = db.items.filter(i => i.clienteId !== cid);
+  guardar();
+  location.replace('#/');
+  toast('Cliente borrado', true);
+}
+
+/* =========================================================
+   PRODUCTOS
+   ========================================================= */
+function vistaProductos() {
+  titulo('Mis productos');
+  const veces = vecesVendido();
+  const prods = [...db.productos].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  let letraPrev = '';
+  const filas = prods.map(p => {
+    const l = normal(p.nombre)[0]?.toUpperCase() || '';
+    const mostrar = l !== letraPrev; letraPrev = l;
+    const n = veces[normal(p.nombre)] || 0;
+    return `<button class="renglon" data-p="${esc(p.id)}">
+      <span class="mg letra">${mostrar ? esc(l) : ''}</span>
+      <span class="cuerpo"><b>${esc(p.nombre)}</b><span>${n ? `Vendido ${n} ${n === 1 ? 'vez' : 'veces'}` : 'Sin ventas todavía'}</span></span>
+      <span class="valor mano">${plata(p.precio)}</span>
+    </button>`;
+  }).join('');
+  app.innerHTML = `
+    <section class="hoja">
+      <div class="hoja-tit">Lo que vende<small>Toque uno para cambiar el precio</small></div>
+      ${filas || `<div class="renglon vacio"><span class="mg"></span><span class="cuerpo">Aquí aparecerán sus productos con su precio. También se guardan solos cuando anota una venta.</span></div>`}
+    </section>`;
+  app.querySelectorAll('[data-p]').forEach(b => b.onclick = () => editarProducto(b.dataset.p));
+  ponerDock(`<div class="dock-fab"><button class="btn btn-tinta" id="nuevoProd">＋ Agregar producto</button></div>`, true);
+  $('#nuevoProd').onclick = () => editarProducto(null);
+}
+
+async function editarProducto(id) {
+  const p = id ? db.productos.find(x => x.id === id) : null;
+  const r = await ventana({
+    titulo: p ? 'Cambiar producto' : 'Producto nuevo',
+    html: `<label class="etq">Nombre</label><input class="campo" name="nombre" value="${esc(p ? p.nombre : '')}" placeholder="Ej: Gaseosa 400 ml" autocomplete="off" autocapitalize="sentences">
+      <label class="etq">Precio</label><input class="campo" name="precio" inputmode="numeric" value="${p ? p.precio : ''}" placeholder="2500">`,
+    botones: [
+      { txt: 'Guardar', val: 'ok', clase: 'btn-tinta', validar: d => !d.nombre.trim() ? 'Escriba el nombre' : !limpiaNumero(d.precio) ? 'Escriba el precio' : '' },
+      ...(p ? [{ txt: 'Quitar de la lista', val: 'borrar' }] : []),
+      { txt: 'Cancelar' }
+    ], enfocar: !p
+  });
+  if (!r) return;
+  if (r.val === 'borrar') {
+    tomarFoto();
+    db.productos = db.productos.filter(x => x.id !== id);
+    guardar(); render(); toast('Quitado. Lo que ya está anotado no cambia.', true);
+    return;
+  }
+  const nombre = limpiaNombre(r.datos.nombre), precio = limpiaNumero(r.datos.precio);
+  if (p) { p.nombre = nombre; p.precio = precio; }
+  else {
+    const ya = db.productos.find(x => normal(x.nombre) === normal(nombre));
+    if (ya) ya.precio = precio; else db.productos.push({ id: uid(), nombre, precio });
+  }
+  guardar(); render(); toast('Producto guardado');
+}
+
+/* =========================================================
+   COPIA DE SEGURIDAD
+   ========================================================= */
+function vistaCopia() {
+  titulo('Copia de seguridad');
+  let puedeCompartir = false;
+  try { puedeCompartir = !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.json', { type: 'application/json' })] })); } catch (e) {}
+  const n = db.ultimaCopia ? dias(db.ultimaCopia) : null;
+  const alDia = n !== null && n < 7;
+  app.innerHTML = `
+    <section class="hoja portada">
+      <div class="pt-lbl">Última copia</div>
+      <div class="pt-monto ${alDia ? 'verde' : 'rojo'}" style="font-size:46px">${n === null ? 'Nunca' : haceCuanto(db.ultimaCopia).replace(/^./, m => m.toUpperCase())}</div>
+      <p class="pt-frase">Todo queda guardado solo en este celular. Una vez por semana, guarde una copia y envíesela a usted misma.</p>
+      <div class="apila">
+        ${puedeCompartir ? `<button class="btn btn-tinta" id="compartir">Enviar copia por WhatsApp o correo</button>` : ''}
+        <button class="btn ${puedeCompartir ? 'btn-linea' : 'btn-tinta'}" id="descargar">Descargar copia al celular</button>
+      </div>
+    </section>
+
+    <section class="hoja lisa">
+      <div class="hoja-tit">Recuperar una copia<small>Si cambió de celular o se borró todo</small></div>
+      <div class="pad">
+        <label class="btn btn-linea" for="archivo">Abrir archivo de copia</label>
+        <input type="file" id="archivo" accept=".json,application/json" class="oculto">
+      </div>
+    </section>
+
+    <section class="hoja lisa">
+      <div class="hoja-tit">Nombre de la tienda<small>Sale arriba y en las cuentas que envía</small></div>
+      <div class="pad"><input class="campo" id="nombreTienda" value="${esc(db.tienda)}" placeholder="Tienda de Norma" autocapitalize="words"></div>
+    </section>
+    <p style="text-align:center;color:var(--tinta-2);font-size:16px">${db.clientes.length} clientes, ${db.items.length} anotaciones y ${db.productos.length} productos.</p>`;
+
+  const archivoCopia = () => {
+    const json = JSON.stringify({ app: 'fiados', version: 1, fecha: new Date().toISOString(), datos: db }, null, 1);
+    return new File([json], `fiados-copia-${hoy()}.json`, { type: 'application/json' });
+  };
+  const marcarCopia = () => { db.ultimaCopia = hoy(); guardar(); };
+
+  if ($('#compartir')) $('#compartir').onclick = async () => {
+    try {
+      await navigator.share({ files: [archivoCopia()], title: 'Copia de fiados', text: `Copia de fiados del ${hoy()}` });
+      marcarCopia(); toast('Copia enviada'); vistaCopia();
+    } catch (e) { if (e.name !== 'AbortError') toast('No se pudo enviar. Use «Descargar copia».'); }
+  };
+  $('#descargar').onclick = () => {
+    const f = archivoCopia(), a = document.createElement('a');
+    a.href = URL.createObjectURL(f); a.download = f.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    marcarCopia(); toast('Copia descargada'); vistaCopia();
+  };
+  $('#archivo').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const obj = JSON.parse(await f.text());
+      const d = obj.datos || obj;
+      if (!Array.isArray(d.clientes) || !Array.isArray(d.items)) throw new Error('formato');
+      const r = await ventana({
+        titulo: '¿Recuperar esta copia?',
+        html: `<p>Tiene <b>${d.clientes.length} clientes</b> y <b>${d.items.length} anotaciones</b>${obj.fecha ? `, guardada ${fLarga(obj.fecha.slice(0, 10))}` : ''}.</p><p class="rojo"><b>Lo que hay ahora en el celular se reemplaza por la copia.</b></p>`,
+        botones: [{ txt: 'Sí, recuperar', val: 'ok', clase: 'btn-tinta' }, { txt: 'Cancelar' }]
+      });
+      if (!r) return;
+      tomarFoto();
+      db = Object.assign(BASE(), d);
+      guardar(); toast('Datos recuperados', true); location.hash = '#/';
+    } catch (err) { toast('Ese archivo no es una copia de Fiados'); }
+    finally { e.target.value = ''; }
+  };
+  $('#nombreTienda').addEventListener('change', e => { db.tienda = limpiaNombre(e.target.value) || 'Mi Tiendita'; guardar(); titulo('Copia de seguridad'); toast('Nombre guardado'); });
+}
+
+/* =========================================================
+   ARRANQUE
+   ========================================================= */
+cargar();
+render();
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
