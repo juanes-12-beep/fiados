@@ -1,6 +1,6 @@
 // Permite que la app abra sin internet.
 // Si cambia algún archivo de la app, suba el número de versión.
-const CACHE = 'fiados-v2';
+const CACHE = 'fiados-v3';
 const ARCHIVOS = [
   './',
   './index.html',

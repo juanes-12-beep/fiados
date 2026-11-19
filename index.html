@@ -276,6 +276,11 @@ function fLarga(s) {          // "hoy", "ayer", "el 10 de noviembre"
 }
 const haceCuanto = s => { const n = dias(s); return n <= 0 ? 'hoy' : n === 1 ? 'ayer' : `hace ${n} días`; };
 const nombreMes = () => new Date().toLocaleDateString('es-CO', { month: 'long' });
+/* celulares: se guardan solo los números ("3001234567") */
+const limpiaTel = t => { let d = String(t || '').replace(/\D/g, ''); if (d.length === 12 && d.startsWith('57')) d = d.slice(2); return d; };
+const telValido = t => { const d = limpiaTel(t); return d.length === 10 || (d.length > 10 && d.length <= 15); };
+const verTel = t => { const d = limpiaTel(t); return d.length === 10 ? `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}` : d; };
+const telWhatsApp = t => { const d = limpiaTel(t); return d.length === 10 ? '57' + d : d; };
 const ICO_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
 const ICO_BORRAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5A1.6 1.6 0 0 0 8.6 21h6.8a1.6 1.6 0 0 0 1.6-1.5L18 7M9 7V4.5h6V7"/></svg>';
 const ICO_BUSCAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>';
@@ -369,7 +374,8 @@ function ponerDock(html, conNav) {
   d.className = 'dock' + (conNav ? ' sobre-nav' : '');
   d.innerHTML = html;
   requestAnimationFrame(() => {
-    const h = d.offsetHeight + (conNav ? $('#nav').offsetHeight : 0);
+    const nav = $('#nav');
+    const h = d.offsetHeight + (conNav && nav ? nav.offsetHeight : 0);
     document.body.style.paddingBottom = (h + 24) + 'px';
   });
 }
@@ -442,7 +448,22 @@ function vistaInicio() {
    ========================================================= */
 let borrador = null;
 let textoProducto = '';
-const nuevoBorrador = cid => ({ clienteId: cid || null, nombreNuevo: '', fecha: hoy(), lineas: [] });
+const nuevoBorrador = cid => ({ clienteId: cid || null, nombreNuevo: '', telefonoNuevo: '', fecha: hoy(), lineas: [] });
+
+/* Pide el celular. Devuelve los números, '' si no lo tiene, o null si cerró la ventana. */
+async function pedirCelular(nombre, actual = '') {
+  const r = await ventana({
+    titulo: `Celular de ${nombre}`,
+    html: `<p style="color:var(--tinta-2)">Para mandarle la cuenta por WhatsApp cuando se la pida.</p>
+      <input class="campo" name="tel" type="tel" inputmode="tel" placeholder="300 123 4567" value="${esc(verTel(actual))}" autocomplete="off">`,
+    botones: [
+      { txt: 'Guardar celular', val: 'ok', clase: 'btn-tinta', validar: d => telValido(d.tel) ? '' : 'Escriba los 10 números del celular' },
+      { txt: 'No lo tiene', val: 'no' }
+    ]
+  });
+  if (!r) return null;
+  return r.val === 'ok' ? limpiaTel(r.datos.tel) : '';
+}
 
 function vistaVenta(cidInicial) {
   if (!borrador) borrador = nuevoBorrador(cidInicial && cliente(cidInicial) ? cidInicial : null);
@@ -495,9 +516,11 @@ function pintarCliente() {
   if (c || borrador.nombreNuevo) {
     const nombre = c ? c.nombre : borrador.nombreNuevo;
     const d = c ? deuda(c.id) : 0;
-    sec.innerHTML = `<div class="elegido"><div class="nom"><div>${esc(nombre)}</div><div>${c ? (d ? `Ya debe ${plata(d)}` : 'Está al día') : 'Cliente nuevo'}</div></div>
+    const tel = c ? c.telefono : borrador.telefonoNuevo;
+    const sub = c ? (d ? `Ya debe ${plata(d)}` : 'Está al día') : 'Cliente nuevo';
+    sec.innerHTML = `<div class="elegido"><div class="nom"><div>${esc(nombre)}</div><div>${sub}${tel ? `. <span style="white-space:nowrap">Cel. ${esc(verTel(tel))}</span>` : ''}</div></div>
       <button class="btn btn-linea" id="cambiarCliente" style="width:auto;min-height:48px">Cambiar</button></div>`;
-    $('#cambiarCliente').onclick = () => { borrador.clienteId = null; borrador.nombreNuevo = ''; pintarCliente(); pintarCarrito(); };
+    $('#cambiarCliente').onclick = () => { borrador.clienteId = null; borrador.nombreNuevo = ''; borrador.telefonoNuevo = ''; pintarCliente(); pintarCarrito(); };
     return;
   }
   sec.innerHTML = `<div class="personas" id="personas"></div>
@@ -515,10 +538,16 @@ function pintarCliente() {
   };
   inp.addEventListener('input', pintar);
   inp.addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('#personas button'); if (b) b.click(); } });
-  $('#personas').onclick = e => {
+  $('#personas').onclick = async e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.c) borrador.clienteId = b.dataset.c;
-    else borrador.nombreNuevo = limpiaNombre(inp.value);
+    else {
+      const nombre = limpiaNombre(inp.value);
+      const tel = await pedirCelular(nombre);
+      if (tel === null) return;           // cerró la ventana: sigue escogiendo
+      borrador.nombreNuevo = nombre;
+      borrador.telefonoNuevo = tel;
+    }
     pintarCliente(); pintarCarrito();
   };
   pintar();
@@ -598,15 +627,17 @@ function guardarVenta(pagado) {
   if (!cid) {
     const ya = db.clientes.find(c => normal(c.nombre) === normal(borrador.nombreNuevo));
     if (ya) cid = ya.id;
-    else { cid = uid(); db.clientes.push({ id: cid, nombre: borrador.nombreNuevo, telefono: '' }); }
+    else { cid = uid(); db.clientes.push({ id: cid, nombre: borrador.nombreNuevo, telefono: borrador.telefonoNuevo || '' }); }
   }
   const fecha = borrador.fecha || hoy(), total = suma(borrador.lineas);
   for (const l of borrador.lineas)
     db.items.push({ id: uid(), clienteId: cid, nombre: l.nombre, precio: l.precio, cant: l.cant, fechaCompra: fecha, fechaPago: pagado ? fecha : null });
   guardar();
   borrador = null;
-  toast(pagado ? `Venta pagada: ${plata(total)}` : `Fiado anotado: ${plata(total)}`, true);
-  location.replace('#/cliente/' + encodeURIComponent(cid));
+  const quien = cliente(cid).nombre;
+  toast(pagado ? `Venta pagada: ${quien}, ${plata(total)}` : `Fiado anotado: ${quien} debe ${plata(total)} más`, true);
+  textoBusqueda = '';
+  location.replace('#/');   // vuelve al inicio para seguir atendiendo
 }
 
 /* =========================================================
@@ -647,6 +678,7 @@ function vistaCliente(cid) {
   app.innerHTML = `
     <section class="hoja portada">
       <div class="pt-nombre">${esc(c.nombre)}</div>
+      <div class="pt-lbl">${c.telefono ? `Cel. ${esc(verTel(c.telefono))}` : `<button class="link" id="cTel" style="padding:0;font-size:17px">＋ Agregar celular</button>`}</div>
       ${d ? `<div class="pt-lbl">Le debe</div><div class="pt-monto rojo">${plata(d)}</div>
              <p class="pt-frase">Desde ${fLarga(vieja)}${nDias > 1 ? `, hace ${nDias} días` : ''}.</p>`
           : `<div class="pt-monto verde" style="font-size:44px">Está al día</div>`}
@@ -675,6 +707,10 @@ function vistaCliente(cid) {
 
   $('#cVenta').onclick = () => { borrador = nuevoBorrador(cid); ir('#/venta/' + encodeURIComponent(cid)); };
   if ($('#cWhats')) $('#cWhats').onclick = () => enviarCuenta(cid);
+  if ($('#cTel')) $('#cTel').onclick = async () => {
+    const tel = await pedirCelular(c.nombre);
+    if (tel) { c.telefono = tel; guardar(); vistaCliente(cid); toast('Celular guardado'); }
+  };
   $('#cEditar').onclick = () => editarCliente(cid);
   if ($('#verTodo')) $('#verTodo').onclick = () => { verTodo = true; vistaCliente(cid); };
   if ($('#corregir')) $('#corregir').onclick = () => { modoCorregir = !modoCorregir; seleccion = new Set(); vistaCliente(cid); };
@@ -762,14 +798,17 @@ async function despagar(id) {
   guardar(); toast('Volvió a lo que debe', true); render();
 }
 
-function enviarCuenta(cid) {
+async function enviarCuenta(cid) {
   const c = cliente(cid);
+  if (!c.telefono) {
+    const tel = await pedirCelular(c.nombre);
+    if (tel === null) return;
+    if (tel) { c.telefono = tel; guardar(); vistaCliente(cid); }
+  }
   const pend = pendientes(cid).sort((a, b) => a.fechaCompra.localeCompare(b.fechaCompra));
   const lineas = pend.map(i => `• ${fCorta(i.fechaCompra)}: ${i.nombre}${i.cant > 1 ? ' x' + i.cant : ''} = ${plata(i.precio * i.cant)}`);
   const texto = `Hola ${c.nombre}, esta es su cuenta en ${db.tienda || 'la tienda'}:\n\n${lineas.join('\n')}\n\n*Total: ${plata(suma(pend))}*\n\n¡Gracias!`;
-  const tel = (c.telefono || '').replace(/\D/g, '');
-  const num = tel ? (tel.length === 10 ? '57' + tel : tel) : '';
-  window.open(`https://wa.me/${num}?text=${encodeURIComponent(texto)}`, '_blank');
+  window.open(`https://wa.me/${telWhatsApp(c.telefono)}?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
 async function editarCliente(cid) {
@@ -777,16 +816,16 @@ async function editarCliente(cid) {
   const r = await ventana({
     titulo: 'Datos del cliente',
     html: `<label class="etq">Nombre</label><input class="campo" name="nombre" value="${esc(c.nombre)}" autocomplete="off" autocapitalize="words">
-      <label class="etq">Celular (para enviarle la cuenta)</label><input class="campo" name="telefono" inputmode="tel" value="${esc(c.telefono || '')}" placeholder="3001234567">`,
+      <label class="etq">Celular (para enviarle la cuenta)</label><input class="campo" name="telefono" type="tel" inputmode="tel" value="${esc(verTel(c.telefono))}" placeholder="300 123 4567">`,
     botones: [
-      { txt: 'Guardar', val: 'ok', clase: 'btn-tinta', validar: d => !d.nombre.trim() ? 'El nombre no puede quedar vacío' : '' },
+      { txt: 'Guardar', val: 'ok', clase: 'btn-tinta', validar: d => !d.nombre.trim() ? 'El nombre no puede quedar vacío' : (d.telefono.trim() && !telValido(d.telefono)) ? 'Escriba los 10 números del celular' : '' },
       { txt: 'Borrar este cliente', val: 'borrar' },
       { txt: 'Cancelar' }
     ], enfocar: false
   });
   if (!r) return;
   if (r.val === 'ok') {
-    c.nombre = limpiaNombre(r.datos.nombre); c.telefono = r.datos.telefono.trim();
+    c.nombre = limpiaNombre(r.datos.nombre); c.telefono = limpiaTel(r.datos.telefono);
     guardar(); render(); toast('Datos guardados');
     return;
   }
@@ -867,57 +906,62 @@ async function editarProducto(id) {
 function vistaCopia() {
   titulo('Copia de seguridad');
   let puedeCompartir = false;
-  try { puedeCompartir = !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.json', { type: 'application/json' })] })); } catch (e) {}
+  try { puedeCompartir = !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] })); } catch (e) {}
   const n = db.ultimaCopia ? dias(db.ultimaCopia) : null;
   const alDia = n !== null && n < 7;
   app.innerHTML = `
     <section class="hoja portada">
       <div class="pt-lbl">Última copia</div>
       <div class="pt-monto ${alDia ? 'verde' : 'rojo'}" style="font-size:46px">${n === null ? 'Nunca' : haceCuanto(db.ultimaCopia).replace(/^./, m => m.toUpperCase())}</div>
-      <p class="pt-frase">Todo queda guardado solo en este celular. Una vez por semana, guarde una copia y envíesela a usted misma.</p>
+      <p class="pt-frase">La copia es una hoja PDF con lo que le deben y lo que ya le pagaron. Se abre directo en WhatsApp.</p>
       <div class="apila">
-        ${puedeCompartir ? `<button class="btn btn-tinta" id="compartir">Enviar copia por WhatsApp o correo</button>` : ''}
-        <button class="btn ${puedeCompartir ? 'btn-linea' : 'btn-tinta'}" id="descargar">Descargar copia al celular</button>
+        ${puedeCompartir ? `<button class="btn btn-tinta" id="compartir">Enviar copia a mi WhatsApp</button>` : ''}
+        <button class="btn ${puedeCompartir ? 'btn-linea' : 'btn-tinta'}" id="descargar">Guardar copia en el celular</button>
       </div>
     </section>
+
+    ${puedeCompartir ? `<section class="hoja lisa">
+      <div class="hoja-tit">Cómo enviarla a su WhatsApp</div>
+      <div class="pad" style="padding-top:8px">
+        <p style="margin:0 0 6px">1. Toque <b>Enviar copia a mi WhatsApp</b>.</p>
+        <p style="margin:0 0 6px">2. Escoja <b>WhatsApp</b>.</p>
+        <p style="margin:0">3. Busque su propio nombre (dice <b>Tú</b> o <b>Mensaje a mí</b>) y envíela.</p>
+      </div>
+    </section>` : ''}
 
     <section class="hoja lisa">
       <div class="hoja-tit">Recuperar una copia<small>Si cambió de celular o se borró todo</small></div>
       <div class="pad">
-        <label class="btn btn-linea" for="archivo">Abrir archivo de copia</label>
-        <input type="file" id="archivo" accept=".json,application/json" class="oculto">
+        <label class="btn btn-linea" for="archivo">Abrir el PDF de copia</label>
+        <input type="file" id="archivo" accept=".pdf,application/pdf,.json,application/json" class="oculto">
       </div>
     </section>
 
     <section class="hoja lisa">
-      <div class="hoja-tit">Nombre de la tienda<small>Sale arriba y en las cuentas que envía</small></div>
+      <div class="hoja-tit">Nombre de la tienda<small>Sale arriba, en la copia y en las cuentas que envía</small></div>
       <div class="pad"><input class="campo" id="nombreTienda" value="${esc(db.tienda)}" placeholder="Tienda de Norma" autocapitalize="words"></div>
     </section>
     <p style="text-align:center;color:var(--tinta-2);font-size:16px">${db.clientes.length} clientes, ${db.items.length} anotaciones y ${db.productos.length} productos.</p>`;
 
-  const archivoCopia = () => {
-    const json = JSON.stringify({ app: 'fiados', version: 1, fecha: new Date().toISOString(), datos: db }, null, 1);
-    return new File([json], `fiados-copia-${hoy()}.json`, { type: 'application/json' });
-  };
   const marcarCopia = () => { db.ultimaCopia = hoy(); guardar(); };
 
   if ($('#compartir')) $('#compartir').onclick = async () => {
     try {
-      await navigator.share({ files: [archivoCopia()], title: 'Copia de fiados', text: `Copia de fiados del ${hoy()}` });
+      await navigator.share({ files: [crearPDF()], title: 'Copia de fiados', text: `Copia de fiados de ${db.tienda}` });
       marcarCopia(); toast('Copia enviada'); vistaCopia();
-    } catch (e) { if (e.name !== 'AbortError') toast('No se pudo enviar. Use «Descargar copia».'); }
+    } catch (e) { if (e.name !== 'AbortError') toast('No se pudo enviar. Use «Guardar copia en el celular».'); }
   };
   $('#descargar').onclick = () => {
-    const f = archivoCopia(), a = document.createElement('a');
+    const f = crearPDF(), a = document.createElement('a');
     a.href = URL.createObjectURL(f); a.download = f.name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    marcarCopia(); toast('Copia descargada'); vistaCopia();
+    marcarCopia(); toast('Copia guardada en Descargas'); vistaCopia();
   };
   $('#archivo').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
     try {
-      const obj = JSON.parse(await f.text());
+      const obj = leerCopia(await f.text());
       const d = obj.datos || obj;
       if (!Array.isArray(d.clientes) || !Array.isArray(d.items)) throw new Error('formato');
       const r = await ventana({
@@ -933,6 +977,131 @@ function vistaCopia() {
     finally { e.target.value = ''; }
   };
   $('#nombreTienda').addEventListener('change', e => { db.tienda = limpiaNombre(e.target.value) || 'Mi Tiendita'; guardar(); titulo('Copia de seguridad'); toast('Nombre guardado'); });
+}
+
+/* =========================================================
+   PDF DE COPIA
+   Una hoja que se lee fácil (por cobrar y ventas pagadas) y que
+   además lleva por dentro todos los datos para poder recuperarlos.
+   ========================================================= */
+const aB64 = str => { const b = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
+const deB64 = b => { const s = atob(b), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new TextDecoder().decode(u); };
+
+function leerCopia(texto) {
+  const partes = [...texto.matchAll(/%FD:([A-Za-z0-9+/=]+)/g)].map(m => m[1]);
+  if (partes.length) return JSON.parse(deB64(partes.join('')));
+  return JSON.parse(texto);   // copias viejas en .json
+}
+
+const WIN = { '•': 0x95, '—': 0x97, '–': 0x96, '…': 0x85, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, ' ': 0x20, ' ': 0x20 };
+function winAnsi(s) {
+  let o = '';
+  for (const ch of String(s)) {
+    const c = ch.codePointAt(0);
+    if ((c >= 32 && c < 127) || (c >= 160 && c < 256)) o += String.fromCharCode(c);
+    else if (WIN[ch]) o += String.fromCharCode(WIN[ch]);
+    else if (c > 255) o += '';      // emojis y otros: se omiten
+  }
+  return o.replace(/[\\()]/g, m => '\\' + m);
+}
+const ANCHO = { ' ': 278, '$': 556, '.': 278, ',': 278, ':': 278, '-': 333, 'x': 500, 'l': 222, 'i': 222, 'j': 222, 't': 278, 'f': 278, 'r': 333, 'I': 278, 'm': 833, 'w': 722, 'M': 833, 'W': 944 };
+const anchoTexto = (t, size, bold) => { let w = 0; for (const ch of t) w += ANCHO[ch] ?? (/[0-9]/.test(ch) ? 556 : /[A-Z]/.test(ch) ? 667 : 540); return w * size / 1000 * (bold ? 1.05 : 1); };
+const corta = (t, size, max, bold) => { if (anchoTexto(t, size, bold) <= max) return t; while (t.length > 1 && anchoTexto(t + '...', size, bold) > max) t = t.slice(0, -1); return t + '...'; };
+const fFija = s => { const d = aFecha(s), op = { day: 'numeric', month: 'short' }; if (d.getFullYear() !== new Date().getFullYear()) op.year = 'numeric'; return d.toLocaleDateString('es-CO', op).replace(/\./g, ''); };
+const mayus = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+function crearPDF() {
+  const W = 595, H = 842, M = 48, ABAJO = M + 26;
+  const TINTA = '0.11 0.16 0.29', GRIS = '0.36 0.40 0.50', ROJO = '0.77 0.20 0.16', VERDE = '0.07 0.48 0.29';
+  const tienda = db.tienda || 'la tienda';
+  const paginas = []; let ops, y;
+  const nueva = () => { ops = []; paginas.push(ops); y = H - M; };
+  const baja = h => { if (y - h < ABAJO) nueva(); y -= h; };
+  const texto = (t, x, size, color, bold) => ops.push(`${color} rg BT /${bold ? 'F2' : 'F1'} ${size} Tf ${x.toFixed(1)} ${y.toFixed(1)} Td (${winAnsi(t)}) Tj ET`);
+  const derecha = (t, size, color, bold) => texto(t, W - M - anchoTexto(t, size), size, color, bold);   // los números miden igual en negrilla
+  const raya = (g = 0.6) => ops.push(`0.80 0.85 0.92 RG ${g} w ${M} ${(y - 6).toFixed(1)} m ${W - M} ${(y - 6).toFixed(1)} l S`);
+
+  const pend = db.items.filter(i => !i.fechaPago);
+  const pag = db.items.filter(i => i.fechaPago).sort((a, b) => b.fechaPago.localeCompare(a.fechaPago) || b.fechaCompra.localeCompare(a.fechaCompra));
+  const mes = hoy().slice(0, 7);
+  const ahora = new Date().toLocaleString('es-CO', { day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const nombreDe = id => (cliente(id) || {}).nombre || 'Cliente borrado';
+
+  nueva();
+  baja(20); texto(`Fiados de ${tienda}`, M, 22, TINTA, true);
+  baja(20); texto(`Copia del ${ahora}`, M, 11, GRIS);
+  baja(30); texto('Le deben en total', M, 13, TINTA); derecha(plata(suma(pend)), 16, ROJO, true);
+  baja(22); texto(`Recibido en ${nombreMes()}`, M, 13, TINTA); derecha(plata(suma(pag.filter(i => i.fechaPago.slice(0, 7) === mes))), 14, VERDE, true);
+  raya(1.2);
+
+  // ---- Por cobrar, cliente por cliente ----
+  baja(40); texto('Por cobrar', M, 17, TINTA, true);
+  const deudores = db.clientes.map(c => ({ c, items: pend.filter(i => i.clienteId === c.id).sort((a, b) => a.fechaCompra.localeCompare(b.fechaCompra)) }))
+    .filter(x => x.items.length).sort((a, b) => suma(b.items) - suma(a.items));
+  if (!deudores.length) { baja(20); texto('Nadie le debe.', M, 12, GRIS); }
+  for (const { c, items } of deudores) {
+    baja(28);
+    const cab = c.nombre + (c.telefono ? `   Cel. ${verTel(c.telefono)}` : '');
+    texto(corta(cab, 12.5, 380, true), M, 12.5, TINTA, true); derecha(plata(suma(items)), 12.5, ROJO, true);
+    for (const i of items) {
+      baja(17);
+      texto(fFija(i.fechaCompra), M + 10, 10.5, GRIS);
+      texto(corta(i.nombre + (i.cant > 1 ? ` x${i.cant}` : ''), 10.5, 330), M + 90, 10.5, TINTA);
+      derecha(plata(i.precio * i.cant), 10.5, TINTA);
+    }
+    raya();
+  }
+
+  // ---- Ventas pagadas, por mes ----
+  baja(44); texto('Ventas pagadas', M, 17, TINTA, true);
+  if (!pag.length) { baja(20); texto('Todavía no hay ventas pagadas.', M, 12, GRIS); }
+  const meses = [];
+  for (const i of pag) { const k = i.fechaPago.slice(0, 7); let g = meses.find(x => x.k === k); if (!g) meses.push(g = { k, items: [] }); g.items.push(i); }
+  for (const g of meses) {
+    baja(28);
+    texto(mayus(aFecha(g.k + '-01').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })), M, 12.5, TINTA, true);
+    derecha(plata(suma(g.items)), 12.5, VERDE, true);
+    for (const i of g.items) {
+      baja(17);
+      texto(fFija(i.fechaPago), M + 10, 10.5, GRIS);
+      texto(corta(`${nombreDe(i.clienteId)}: ${i.nombre}${i.cant > 1 ? ` x${i.cant}` : ''}`, 10.5, 330), M + 90, 10.5, TINTA);
+      derecha(plata(i.precio * i.cant), 10.5, TINTA);
+    }
+    raya();
+  }
+
+  baja(36); texto('Para recuperar todo en otro celular: abra la app Fiados, vaya a Copia,', M, 9.5, GRIS);
+  baja(13); texto('toque "Abrir el PDF de copia" y escoja este archivo.', M, 9.5, GRIS);
+
+  paginas.forEach((p, n) => p.push(`0.55 0.58 0.66 rg BT /F1 9 Tf ${M} 30 Td (${winAnsi(`${tienda}, página ${n + 1} de ${paginas.length}`)}) Tj ET`));
+
+  // ---- Armar el archivo PDF ----
+  const objs = [];
+  objs[0] = '<< /Type /Catalog /Pages 2 0 R >>';
+  objs[2] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+  objs[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+  objs[4] = `<< /Title (${winAnsi('Fiados de ' + tienda)}) /Producer (Fiados) >>`;
+  const kids = [];
+  paginas.forEach((p, i) => {
+    const pn = 6 + i * 2, cn = pn + 1, s = p.join('\n');
+    kids.push(`${pn} 0 R`);
+    objs[pn - 1] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${cn} 0 R >>`;
+    objs[cn - 1] = `<< /Length ${s.length} >>\nstream\n${s}\nendstream`;
+  });
+  objs[1] = `<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${paginas.length} >>`;
+
+  const datos = aB64(JSON.stringify({ app: 'fiados', version: 2, fecha: new Date().toISOString(), datos: db }));
+  let out = '%PDF-1.4\n%âãÏÓ\n';
+  for (let k = 0; k < datos.length; k += 200) out += '%FD:' + datos.slice(k, k + 200) + '\n';
+  const offs = [];
+  objs.forEach((o, i) => { offs.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + offs.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('');
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Info 5 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const bytes = new Uint8Array(out.length);
+  for (let k = 0; k < out.length; k++) bytes[k] = out.charCodeAt(k) & 255;
+  const nombreArchivo = `Fiados ${tienda} ${hoy()}.pdf`.replace(/[\\/:*?"<>|]/g, '');
+  return new File([bytes], nombreArchivo, { type: 'application/pdf' });
 }
 
 /* =========================================================
