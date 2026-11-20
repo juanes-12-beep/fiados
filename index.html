@@ -67,6 +67,15 @@
   .pt-nombre{font:700 34px/40px var(--mano);padding-top:6px;overflow-wrap:anywhere}
   .pt-frase{margin:0;line-height:40px;font-size:18px}
   .pt-frase b{font-family:var(--mano);font-size:23px}
+  .pt-fila{display:flex;justify-content:space-between;align-items:baseline;gap:10px;line-height:40px;font-size:18px}
+  .pt-fila b{font:700 25px/40px var(--mano)}
+  .pt-fila b.verde{color:var(--verde)}
+  .hoja-tit.pestanas-tit{padding:10px 12px}
+  .pestanas{display:flex;gap:6px;background:var(--mesa);border-radius:14px;padding:4px}
+  .pestanas button{flex:1;border:0;background:transparent;border-radius:11px;padding:8px;font-weight:700;font-size:18px;color:var(--tinta-2);min-height:50px}
+  .pestanas button[aria-selected="true"]{background:#fff;color:var(--tinta);box-shadow:0 1px 4px rgba(28,42,74,.22)}
+  .pestanas .cnt{display:inline-block;min-width:28px;padding:1px 8px;border-radius:999px;color:#fff;font-size:15px;margin-left:4px}
+  .pestanas .rojo-f{background:var(--rojo)} .pestanas .verde-f{background:var(--verde)}
   .portada .apila{display:flex;flex-direction:column;gap:10px;margin-top:14px}
 
   /* Renglones */
@@ -384,13 +393,17 @@ function ponerDock(html, conNav) {
    INICIO — cuánto le deben y la lista de clientes
    ========================================================= */
 let textoBusqueda = '';
+let pestanaInicio = 'deben';   // 'deben' | 'aldia'
 function vistaInicio() {
   titulo(db.tienda || 'Fiados');
   const pend = db.items.filter(i => !i.fechaPago);
   const total = suma(pend);
-  const deudores = new Set(pend.map(i => i.clienteId)).size;
   const mes = hoy().slice(0, 7);
+  const vendido = suma(db.items.filter(i => i.fechaCompra.slice(0, 7) === mes));
   const recibido = suma(db.items.filter(i => i.fechaPago && i.fechaPago.slice(0, 7) === mes));
+  const conDeuda = db.clientes.filter(c => deuda(c.id) > 0);
+  const alDia = db.clientes.filter(c => deuda(c.id) === 0);
+  const nMes = nombreMes();
 
   let nota = '';
   if (db.items.length >= 5) {
@@ -398,8 +411,7 @@ function vistaInicio() {
     if (n === null || n >= 7) nota = `<div class="nota"><p>${n === null ? 'Todavía no ha guardado una copia de sus fiados.' : `Su última copia fue ${haceCuanto(db.ultimaCopia)}.`}</p><a class="btn btn-tinta" href="#/copia">Guardar copia</a></div>`;
   }
 
-  const frase = (deudores === 0 ? 'Nadie le debe.' : deudores === 1 ? 'Un cliente le debe.' : `${deudores} clientes le deben.`)
-    + ` En ${nombreMes()} ha recibido <b>${plata(recibido)}</b>.`;
+  const frase = conDeuda.length === 0 ? 'Nadie le debe.' : conDeuda.length === 1 ? 'Un cliente le debe.' : `${conDeuda.length} clientes le deben.`;
 
   app.innerHTML = `
     ${nota}
@@ -407,24 +419,33 @@ function vistaInicio() {
       <div class="pt-lbl">Le deben</div>
       <div class="pt-monto ${total ? 'rojo' : 'verde'}">${plata(total)}</div>
       <p class="pt-frase">${frase}</p>
+      <div class="pt-fila"><span>Vendió en ${nMes}</span><b>${plata(vendido)}</b></div>
+      <div class="pt-fila"><span>Recibió en ${nMes}</span><b class="verde">${plata(recibido)}</b></div>
     </section>
     <section class="hoja">
-      <div class="hoja-tit">Clientes</div>
+      <div class="hoja-tit pestanas-tit">
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-pestana="deben" aria-selected="${pestanaInicio === 'deben'}">Deben <span class="cnt rojo-f">${conDeuda.length}</span></button>
+          <button role="tab" data-pestana="aldia" aria-selected="${pestanaInicio === 'aldia'}">Al día <span class="cnt verde-f">${alDia.length}</span></button>
+        </div>
+      </div>
       ${db.clientes.length > 5 ? `<div class="buscar-wrap">${ICO_BUSCAR}<input class="campo" id="buscar" type="search" placeholder="Buscar por nombre" value="${esc(textoBusqueda)}" autocomplete="off"></div>` : ''}
       <div id="lista"></div>
     </section>`;
 
+  const vacio = t => `<div class="renglon vacio"><span class="mg"></span><span class="cuerpo">${t}</span></div>`;
   const pintarLista = () => {
-    if (!db.clientes.length) {
-      $('#lista').innerHTML = `<div class="renglon vacio"><span class="mg"></span><span class="cuerpo">Aquí aparecerán sus clientes. Toque <b style="display:inline">Anotar venta</b> para empezar.</span></div>`;
+    if (!db.clientes.length) { $('#lista').innerHTML = vacio('Aquí aparecerán sus clientes. Toque <b style="display:inline">Anotar venta</b> para empezar.'); return; }
+    const q = db.clientes.length > 5 ? normal(textoBusqueda) : '';
+    let lista = db.clientes.map(c => ({ c, d: deuda(c.id), v: deudaMasVieja(c.id), u: ultimaCompra(c.id) }));
+    if (q) lista = lista.filter(x => normal(x.c.nombre).includes(q));           // al buscar, busca en las dos pestañas
+    else lista = lista.filter(x => pestanaInicio === 'deben' ? x.d > 0 : x.d === 0);
+    lista.sort((a, b) => b.d - a.d || a.c.nombre.localeCompare(b.c.nombre, 'es'));
+    if (!lista.length) {
+      $('#lista').innerHTML = vacio(q ? 'No hay nadie con ese nombre.'
+        : pestanaInicio === 'deben' ? 'Nadie le debe. Todos están al día.' : 'Aquí aparecen los clientes que ya pagaron todo.');
       return;
     }
-    const q = db.clientes.length > 5 ? normal(textoBusqueda) : '';
-    const lista = db.clientes
-      .map(c => ({ c, d: deuda(c.id), v: deudaMasVieja(c.id), u: ultimaCompra(c.id) }))
-      .filter(x => !q || normal(x.c.nombre).includes(q))
-      .sort((a, b) => b.d - a.d || a.c.nombre.localeCompare(b.c.nombre, 'es'));
-    if (!lista.length) { $('#lista').innerHTML = `<div class="renglon vacio"><span class="mg"></span><span class="cuerpo">No hay nadie con ese nombre.</span></div>`; return; }
     $('#lista').innerHTML = lista.map(({ c, d, v, u }) => {
       const sub = d ? `Debe desde ${haceCuanto(v)}` : (u ? `Última compra ${haceCuanto(u)}` : 'Sin compras');
       const viejo = d && dias(v) > 30;
@@ -436,6 +457,11 @@ function vistaInicio() {
     }).join('');
   };
   pintarLista();
+  app.querySelectorAll('[data-pestana]').forEach(b => b.onclick = () => {
+    pestanaInicio = b.dataset.pestana;
+    app.querySelectorAll('[data-pestana]').forEach(x => x.setAttribute('aria-selected', x === b));
+    pintarLista();
+  });
   if ($('#buscar')) $('#buscar').addEventListener('input', e => { textoBusqueda = e.target.value; pintarLista(); });
   $('#lista').onclick = e => { const b = e.target.closest('[data-cliente]'); if (b) ir('#/cliente/' + encodeURIComponent(b.dataset.cliente)); };
 
@@ -458,7 +484,7 @@ async function pedirCelular(nombre, actual = '') {
       <input class="campo" name="tel" type="tel" inputmode="tel" placeholder="300 123 4567" value="${esc(verTel(actual))}" autocomplete="off">`,
     botones: [
       { txt: 'Guardar celular', val: 'ok', clase: 'btn-tinta', validar: d => telValido(d.tel) ? '' : 'Escriba los 10 números del celular' },
-      { txt: 'No lo tiene', val: 'no' }
+      { txt: 'Ahora no', val: 'no' }
     ]
   });
   if (!r) return null;
@@ -516,11 +542,13 @@ function pintarCliente() {
   if (c || borrador.nombreNuevo) {
     const nombre = c ? c.nombre : borrador.nombreNuevo;
     const d = c ? deuda(c.id) : 0;
-    const tel = c ? c.telefono : borrador.telefonoNuevo;
-    const sub = c ? (d ? `Ya debe ${plata(d)}` : 'Está al día') : 'Cliente nuevo';
-    sec.innerHTML = `<div class="elegido"><div class="nom"><div>${esc(nombre)}</div><div>${sub}${tel ? `. <span style="white-space:nowrap">Cel. ${esc(verTel(tel))}</span>` : ''}</div></div>
-      <button class="btn btn-linea" id="cambiarCliente" style="width:auto;min-height:48px">Cambiar</button></div>`;
+    const sub = c ? (d ? `Ya debe ${plata(d)}` : 'Está al día') + (c.telefono ? `. <span style="white-space:nowrap">Cel. ${esc(verTel(c.telefono))}</span>` : '') : 'Cliente nuevo';
+    sec.innerHTML = `<div class="elegido"><div class="nom"><div>${esc(nombre)}</div><div>${sub}</div></div>
+      <button class="btn btn-linea" id="cambiarCliente" style="width:auto;min-height:48px">Cambiar</button></div>
+      ${c ? '' : `<label class="etq" for="telNuevo" style="margin-top:14px">Celular <span style="font-weight:400;color:var(--tinta-2)">(si quiere, para enviarle la cuenta)</span></label>
+      <input class="campo" id="telNuevo" type="tel" inputmode="tel" placeholder="300 123 4567" value="${esc(borrador.telefonoNuevo)}" autocomplete="off">`}`;
     $('#cambiarCliente').onclick = () => { borrador.clienteId = null; borrador.nombreNuevo = ''; borrador.telefonoNuevo = ''; pintarCliente(); pintarCarrito(); };
+    if ($('#telNuevo')) $('#telNuevo').addEventListener('input', e => { borrador.telefonoNuevo = e.target.value; });
     return;
   }
   sec.innerHTML = `<div class="personas" id="personas"></div>
@@ -543,10 +571,8 @@ function pintarCliente() {
     if (b.dataset.c) borrador.clienteId = b.dataset.c;
     else {
       const nombre = limpiaNombre(inp.value);
-      const tel = await pedirCelular(nombre);
-      if (tel === null) return;           // cerró la ventana: sigue escogiendo
       borrador.nombreNuevo = nombre;
-      borrador.telefonoNuevo = tel;
+      borrador.telefonoNuevo = '';        // el celular es opcional: se escribe abajo si quiere
     }
     pintarCliente(); pintarCarrito();
   };
@@ -623,11 +649,13 @@ function guardarVenta(pagado) {
   if (!borrador.lineas.length) return toast('Escoja al menos un producto');
   let cid = borrador.clienteId;
   if (!cid && !borrador.nombreNuevo) return toast('Escoja quién lleva');
+  const telNuevo = String(borrador.telefonoNuevo || '').trim();
+  if (!cid && telNuevo && !telValido(telNuevo)) return toast('Al celular le faltan números. Corríjalo o bórrelo.');
   tomarFoto();
   if (!cid) {
     const ya = db.clientes.find(c => normal(c.nombre) === normal(borrador.nombreNuevo));
     if (ya) cid = ya.id;
-    else { cid = uid(); db.clientes.push({ id: cid, nombre: borrador.nombreNuevo, telefono: borrador.telefonoNuevo || '' }); }
+    else { cid = uid(); db.clientes.push({ id: cid, nombre: borrador.nombreNuevo, telefono: telNuevo ? limpiaTel(telNuevo) : '' }); }
   }
   const fecha = borrador.fecha || hoy(), total = suma(borrador.lineas);
   for (const l of borrador.lineas)
@@ -1031,6 +1059,7 @@ function crearPDF() {
   baja(20); texto(`Fiados de ${tienda}`, M, 22, TINTA, true);
   baja(20); texto(`Copia del ${ahora}`, M, 11, GRIS);
   baja(30); texto('Le deben en total', M, 13, TINTA); derecha(plata(suma(pend)), 16, ROJO, true);
+  baja(22); texto(`Vendido en ${nombreMes()}`, M, 13, TINTA); derecha(plata(suma(db.items.filter(i => i.fechaCompra.slice(0, 7) === mes))), 14, TINTA, true);
   baja(22); texto(`Recibido en ${nombreMes()}`, M, 13, TINTA); derecha(plata(suma(pag.filter(i => i.fechaPago.slice(0, 7) === mes))), 14, VERDE, true);
   raya(1.2);
 
@@ -1051,6 +1080,19 @@ function crearPDF() {
     }
     raya();
   }
+
+  // ---- Clientes al día ----
+  const alDia = db.clientes.filter(c => !pend.some(i => i.clienteId === c.id)).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  baja(44); texto('Clientes al día', M, 17, TINTA, true); derecha(String(alDia.length), 13, VERDE, true);
+  if (!alDia.length) { baja(20); texto('Todos los clientes deben algo.', M, 12, GRIS); }
+  for (const c of alDia) {
+    baja(18);
+    texto(corta(c.nombre, 11, 200, true), M + 10, 11, TINTA, true);
+    if (c.telefono) texto(`Cel. ${verTel(c.telefono)}`, M + 220, 10.5, GRIS);
+    const u = ultimaCompra(c.id);
+    texto(u ? `Última compra: ${fFija(u)}` : 'Sin compras', M + 355, 10.5, GRIS);
+  }
+  raya();
 
   // ---- Ventas pagadas, por mes ----
   baja(44); texto('Ventas pagadas', M, 17, TINTA, true);
